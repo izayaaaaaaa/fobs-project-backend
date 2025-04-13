@@ -1,0 +1,381 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Search API Frontend</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        h1 {
+            color: #333;
+            text-align: center;
+        }
+        .search-box {
+            display: flex;
+            margin-bottom: 20px;
+        }
+        #query {
+            flex: 1;
+            padding: 10px;
+            font-size: 16px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+        .search-settings {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+        .search-settings label {
+            font-size: 14px;
+            margin-right: 5px;
+        }
+        #debounce-time {
+            width: 60px;
+        }
+        .filters {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-bottom: 20px;
+            padding: 10px;
+            background-color: #f5f5f5;
+            border-radius: 4px;
+        }
+        .filter-group {
+            display: flex;
+            flex-direction: column;
+        }
+        .filter-group label {
+            font-size: 12px;
+            margin-bottom: 4px;
+            font-weight: bold;
+        }
+        .filter-group select, .filter-group input {
+            padding: 6px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+        #results {
+            margin-top: 20px;
+        }
+        .result-item {
+            padding: 15px;
+            margin-bottom: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+        .result-item h3 {
+            margin-top: 0;
+            color: #1a73e8;
+        }
+        .meta {
+            font-size: 13px;
+            color: #666;
+            margin-bottom: 8px;
+        }
+        .tags span {
+            display: inline-block;
+            background-color: #e0e0e0;
+            padding: 3px 8px;
+            border-radius: 12px;
+            font-size: 12px;
+            margin-right: 5px;
+            margin-top: 5px;
+        }
+        .loading {
+            text-align: center;
+            display: none;
+        }
+        .error {
+            color: #d32f2f;
+            background-color: #ffebee;
+            padding: 10px;
+            border-radius: 4px;
+            margin-bottom: 10px;
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <h1>Search API Demo</h1>
+    
+    <div class="search-settings">
+        <div>
+            <label for="debounce-time">Debounce time (ms):</label>
+            <input type="number" id="debounce-time" value="300" min="100" max="2000" step="100">
+        </div>
+        <div>
+            <label>
+                <input type="checkbox" id="auto-search" checked> 
+                Search as you type
+            </label>
+        </div>
+    </div>
+    
+    <div class="search-box">
+        <input type="text" id="query" placeholder="Enter search query...">
+    </div>
+    
+    <div class="filters">
+        <div class="filter-group">
+            <label for="type">Type</label>
+            <select id="type">
+                <option value="">All Types</option>
+                <option value="product">Products</option>
+                <option value="article">Articles</option>
+                <option value="service">Services</option>
+            </select>
+        </div>
+        <div class="filter-group">
+            <label for="category">Category</label>
+            <input type="text" id="category" placeholder="Category">
+        </div>
+        <div class="filter-group">
+            <label for="tags">Tags (comma separated)</label>
+            <input type="text" id="tags" placeholder="Tags">
+        </div>
+        <div class="filter-group">
+            <label for="price_min">Min Price</label>
+            <input type="number" id="price_min" placeholder="Min">
+        </div>
+        <div class="filter-group">
+            <label for="price_max">Max Price</label>
+            <input type="number" id="price_max" placeholder="Max">
+        </div>
+        <div class="filter-group">
+            <label for="sort">Sort By</label>
+            <select id="sort">
+                <option value="">Relevance</option>
+                <option value="name">Name (A-Z)</option>
+                <option value="-name">Name (Z-A)</option>
+                <option value="price">Price (Low-High)</option>
+                <option value="-price">Price (High-Low)</option>
+                <option value="-published_date">Newest First</option>
+                <option value="published_date">Oldest First</option>
+            </select>
+        </div>
+    </div>
+    
+    <div id="error" class="error"></div>
+    <div id="loading" class="loading">Searching...</div>
+    
+    <div id="results"></div>
+    
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            // API endpoint
+            const API_URL = 'http://localhost:3000/api/v1/search';
+            
+            // DOM elements
+            const queryInput = document.getElementById('query');
+            const typeSelect = document.getElementById('type');
+            const categoryInput = document.getElementById('category');
+            const tagsInput = document.getElementById('tags');
+            const priceMinInput = document.getElementById('price_min');
+            const priceMaxInput = document.getElementById('price_max');
+            const sortSelect = document.getElementById('sort');
+            const autoSearchCheckbox = document.getElementById('auto-search');
+            const debounceTimeInput = document.getElementById('debounce-time');
+            const resultsContainer = document.getElementById('results');
+            const loadingElement = document.getElementById('loading');
+            const errorElement = document.getElementById('error');
+            
+            // Track current search request
+            let currentSearchRequest = null;
+            let searchTimeout = null;
+            
+            // Add event listeners for all form inputs
+            const allInputs = [
+                queryInput, typeSelect, categoryInput, tagsInput, 
+                priceMinInput, priceMaxInput, sortSelect
+            ];
+            
+            allInputs.forEach(input => {
+                input.addEventListener('input', debounceSearch);
+                input.addEventListener('change', debounceSearch);
+            });
+            
+            // Function to debounce search requests
+            function debounceSearch() {
+                if (!autoSearchCheckbox.checked && this !== queryInput) {
+                    return;
+                }
+                
+                const debounceTime = parseInt(debounceTimeInput.value, 10) || 300;
+                
+                if (searchTimeout) {
+                    clearTimeout(searchTimeout);
+                }
+                
+                // If query is empty, clear results
+                if (queryInput.value.trim() === '') {
+                    resultsContainer.innerHTML = '';
+                    errorElement.style.display = 'none';
+                    loadingElement.style.display = 'none';
+                    return;
+                }
+                
+                searchTimeout = setTimeout(() => {
+                    performSearch();
+                }, debounceTime);
+            }
+            
+            // Add event listener for enter key
+            queryInput.addEventListener('keyup', (e) => {
+                if (e.key === 'Enter') {
+                    performSearch();
+                }
+            });
+            
+            function performSearch() {
+                const query = queryInput.value.trim();
+                
+                if (!query) {
+                    resultsContainer.innerHTML = '';
+                    errorElement.style.display = 'none';
+                    loadingElement.style.display = 'none';
+                    return;
+                }
+                
+                // Abort previous request if it exists
+                if (currentSearchRequest && currentSearchRequest.signal && !currentSearchRequest.signal.aborted) {
+                    currentSearchRequest.abort();
+                }
+                
+                // Create a new AbortController
+                currentSearchRequest = new AbortController();
+                const signal = currentSearchRequest.signal;
+                
+                // Build query parameters
+                const params = new URLSearchParams();
+                params.append('q', query);
+                
+                // Add filters
+                const type = typeSelect.value;
+                if (type) params.append('type', type);
+                
+                const category = categoryInput.value;
+                if (category) params.append('category', category);
+                
+                const tags = tagsInput.value;
+                if (tags) params.append('tags', tags);
+                
+                const priceMin = priceMinInput.value;
+                if (priceMin) params.append('price_min', priceMin);
+                
+                const priceMax = priceMaxInput.value;
+                if (priceMax) params.append('price_max', priceMax);
+                
+                const sort = sortSelect.value;
+                if (sort) params.append('sort', sort);
+                
+                // Add default limit
+                params.append('limit', '10');
+                
+                // Show loading indicator
+                loadingElement.style.display = 'block';
+                errorElement.style.display = 'none';
+                
+                // Make API request
+                fetch(`${API_URL}?${params.toString()}`, { signal })
+                    .then(response => {
+                        if (!response.ok) {
+                            throw new Error(`HTTP error! Status: ${response.status}`);
+                        }
+                        return response.json();
+                    })
+                    .then(data => {
+                        displayResults(data);
+                        loadingElement.style.display = 'none';
+                    })
+                    .catch(error => {
+                        // Don't display errors from aborted requests
+                        if (error.name === 'AbortError') {
+                            return;
+                        }
+                        showError(`Error: ${error.message}`);
+                        loadingElement.style.display = 'none';
+                    });
+            }
+            
+            function displayResults(data) {
+                resultsContainer.innerHTML = '';
+                
+                if (!data.results || data.results.length === 0) {
+                    resultsContainer.innerHTML = '<p>No results found. Try a different search query.</p>';
+                    return;
+                }
+                
+                // Add stats
+                const statsDiv = document.createElement('div');
+                statsDiv.style.marginBottom = '15px';
+                statsDiv.innerHTML = `<strong>Found ${data.metadata.total_results} results for "${data.metadata.query}"</strong>`;
+                resultsContainer.appendChild(statsDiv);
+                
+                // Add results
+                data.results.forEach(item => {
+                    const resultDiv = document.createElement('div');
+                    resultDiv.className = 'result-item';
+                    
+                    // Format price if available
+                    let priceDisplay = '';
+                    if (item.price) {
+                        priceDisplay = `<strong>Price:</strong> $${parseFloat(item.price).toFixed(2)} | `;
+                    }
+                    
+                    // Format date if available
+                    let dateDisplay = '';
+                    if (item.published_date) {
+                        const date = new Date(item.published_date);
+                        dateDisplay = date.toLocaleDateString();
+                    }
+                    
+                    // Create tags HTML
+                    let tagsHtml = '';
+                    if (item.tags && item.tags.length > 0) {
+                        tagsHtml = '<div class="tags">';
+                        item.tags.forEach(tag => {
+                            tagsHtml += `<span>${tag}</span>`;
+                        });
+                        tagsHtml += '</div>';
+                    }
+                    
+                    resultDiv.innerHTML = `
+                        <h3>${item.name}</h3>
+                        <div class="meta">
+                            <strong>Type:</strong> ${item.entity_type} | 
+                            <strong>Category:</strong> ${item.category || 'N/A'} | 
+                            ${priceDisplay}
+                            <strong>Published:</strong> ${dateDisplay || 'N/A'}
+                        </div>
+                        <p>${item.description}</p>
+                        ${tagsHtml}
+                    `;
+                    
+                    resultsContainer.appendChild(resultDiv);
+                });
+            }
+            
+            function showError(message) {
+                errorElement.textContent = message;
+                errorElement.style.display = 'block';
+                loadingElement.style.display = 'none';
+            }
+            
+            // Initial search if URL contains query params
+            const urlParams = new URLSearchParams(window.location.search);
+            if (urlParams.has('q')) {
+                queryInput.value = urlParams.get('q');
+                performSearch();
+            }
+        });
+    </script>
+</body>
+</html> 

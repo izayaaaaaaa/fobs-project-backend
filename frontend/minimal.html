@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Minimal Search Demo</title>
+    <style>
+        body {
+            font-family: sans-serif;
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        input[type="text"] {
+            width: 70%;
+            padding: 8px;
+            margin-right: 5px;
+        }
+        button {
+            padding: 8px 15px;
+            background-color: #008CBA;
+            color: white;
+            border: none;
+            cursor: pointer;
+        }
+        #results {
+            margin-top: 20px;
+        }
+        .result {
+            border: 1px solid #ddd;
+            padding: 10px;
+            margin-bottom: 10px;
+        }
+        .search-options {
+            margin: 10px 0;
+            font-size: 14px;
+        }
+    </style>
+</head>
+<body>
+    <h1>Search API Test</h1>
+    
+    <div>
+        <input type="text" id="searchInput" placeholder="Enter search query...">
+    </div>
+    
+    <div class="search-options">
+        <label>
+            <input type="checkbox" id="autosearch" checked> 
+            Search as I type
+        </label>
+        <span style="margin-left: 10px;">
+            Delay: 
+            <select id="debounce">
+                <option value="200">200ms</option>
+                <option value="500" selected>500ms</option>
+                <option value="1000">1s</option>
+            </select>
+        </span>
+    </div>
+    
+    <div id="results"></div>
+    
+    <script>
+        // DOM elements
+        const searchInput = document.getElementById('searchInput');
+        const resultsDiv = document.getElementById('results');
+        const autosearchCheckbox = document.getElementById('autosearch');
+        const debounceSelect = document.getElementById('debounce');
+        
+        // Variables to manage search
+        let searchTimeout = null;
+        let currentRequest = null;
+        
+        // Add event listeners
+        searchInput.addEventListener('input', handleInputChange);
+        searchInput.addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                search();
+            }
+        });
+        
+        function handleInputChange() {
+            if (autosearchCheckbox.checked) {
+                debounceSearch();
+            }
+        }
+        
+        function debounceSearch() {
+            const query = searchInput.value.trim();
+            
+            // Clear any pending search
+            if (searchTimeout) {
+                clearTimeout(searchTimeout);
+            }
+            
+            // If empty, clear results
+            if (!query) {
+                resultsDiv.innerHTML = '';
+                return;
+            }
+            
+            // Get debounce time from select
+            const debounceTime = parseInt(debounceSelect.value);
+            
+            // Set timeout for search
+            searchTimeout = setTimeout(() => {
+                search();
+            }, debounceTime);
+        }
+        
+        function search() {
+            const query = searchInput.value.trim();
+            
+            if (!query) {
+                resultsDiv.innerHTML = '';
+                return;
+            }
+            
+            resultsDiv.innerHTML = '<p>Searching...</p>';
+            
+            // Cancel previous request if it exists
+            if (currentRequest && typeof currentRequest.abort === 'function') {
+                currentRequest.abort();
+            }
+            
+            // Create new abort controller
+            const controller = new AbortController();
+            currentRequest = controller;
+            
+            // Make API request
+            fetch(`http://localhost:3000/api/v1/search?q=${encodeURIComponent(query)}`, {
+                signal: controller.signal
+            })
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error('Search request failed');
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    displayResults(data);
+                })
+                .catch(error => {
+                    if (error.name === 'AbortError') {
+                        // Ignore aborted requests
+                        return;
+                    }
+                    resultsDiv.innerHTML = `<p style="color: red;">Error: ${error.message}</p>`;
+                });
+        }
+        
+        function displayResults(data) {
+            resultsDiv.innerHTML = '';
+            
+            if (!data.results || data.results.length === 0) {
+                resultsDiv.innerHTML = '<p>No results found</p>';
+                return;
+            }
+            
+            // Add summary
+            const summary = document.createElement('p');
+            summary.innerHTML = `<strong>Found ${data.metadata.total_results} results for "${data.metadata.query}"</strong>`;
+            resultsDiv.appendChild(summary);
+            
+            // Add each result
+            data.results.forEach(item => {
+                const resultDiv = document.createElement('div');
+                resultDiv.className = 'result';
+                
+                resultDiv.innerHTML = `
+                    <h3>${item.name}</h3>
+                    <p><strong>Type:</strong> ${item.entity_type}</p>
+                    <p>${item.description}</p>
+                `;
+                
+                resultsDiv.appendChild(resultDiv);
+            });
+        }
+    </script>
+</body>
+</html> 

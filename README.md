@@ -1,7 +1,6 @@
 ### TODO
-- learn how to setup database etc and test current setup; implement UT
-- learn and implement indexing; implement UT / test
-- learn and implement caching; implement UT / test
+- learn and implement indexing; implement UT / test; study thoroughly!
+- learn and implement caching; implement UT / test; overkill?
 
 # Live Search API
 

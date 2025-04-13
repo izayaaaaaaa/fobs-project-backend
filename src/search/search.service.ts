@@ -96,11 +96,12 @@ export class SearchService {
   private formatSearchQuery(query: string): string {
     return query
       .trim()
+      .toLowerCase()  // Convert to lowercase for case-insensitive search
       .replace(/\s+/g, ' ')  // normalize whitespace
       .split(' ')
       .filter(term => term.length > 0)
       .map(term => term + ':*')  // Add prefix matching
-      .join(' & ');  // AND operator
+      .join(' | ');  // Use OR operator for more flexible matching
   }
 
   // Apply all filters to the query builder
@@ -179,7 +180,7 @@ export class SearchService {
       case SortField.RELEVANCE:
         // Default to relevance for search queries
         if (queryDto.q) {
-          queryBuilder = queryBuilder.orderBy('relevance_score', direction);
+          queryBuilder = queryBuilder.orderBy('relevance_score', 'DESC'); // Most relevant first
         } else {
           // If no search query, default to date
           queryBuilder = queryBuilder.orderBy('content.published_date', 'DESC');
@@ -271,10 +272,10 @@ export class SearchService {
                content.id > :after_id)`;
       
       case SortField.RELEVANCE:
-        // For relevance, we can't easily implement cursor pagination in a generic way
-        // since it's a calculated value. We'll fall back to just using ID
+        // Since relevance is calculated on the fly, cursor-based pagination is complex
+        // For simplicity, we'll just paginate by ID for relevance sort
         return isDesc 
-          ? `content.id < :after_id` 
+          ? `content.id < :after_id`
           : `content.id > :after_id`;
       
       default:

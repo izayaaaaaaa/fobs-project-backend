@@ -73,19 +73,27 @@ Service details stored in the `attributes` JSONB:
 
 ## Sample Data
 
-The application includes a seeder to populate the database with sample content across all supported types. To seed the database:
+The application includes seeders to populate the database with sample content:
 
-1. Ensure your database is configured and running
-2. Run migrations to create the table structure:
-   ```bash
-   npm run typeorm:migration:run
-   ```
-3. Run the seeder:
-   ```bash
-   npm run seed
-   ```
+### Standard Seeder (9 records)
 
-This will add sample products, articles, and services to demonstrate the search capabilities.
+Creates a small set of sample content with 3 products, 3 articles, and 3 services.
+
+```bash
+npm run typeorm:migration:run
+npm run seed
+```
+
+### Large Data Seeder (1000 records)
+
+Creates 1000 records with realistic data across different entity types (500 products, 300 articles, 200 services).
+
+```bash
+npm run typeorm:migration:run
+npm run seed:large
+```
+
+For more details on the seeders, see the [seeder documentation](src/seeder/README.md).
 
 ## API Endpoints
 
@@ -177,8 +185,14 @@ Search across all content with filtering, sorting, and pagination.
 
 6. **Seed the database with sample data**
 
+   For a small dataset (9 records):
    ```bash
    npm run seed
+   ```
+   
+   For a large dataset (1000 records):
+   ```bash
+   npm run seed:large
    ```
 
 7. **Start the application**

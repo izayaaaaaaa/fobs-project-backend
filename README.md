@@ -175,7 +175,13 @@ Search across all content with filtering, sorting, and pagination.
    npm run typeorm:migration:run
    ```
 
-6. **Start the application**
+6. **Seed the database with sample data**
+
+   ```bash
+   npm run seed
+   ```
+
+7. **Start the application**
 
    ```bash
    # Development mode
@@ -186,7 +192,7 @@ Search across all content with filtering, sorting, and pagination.
    npm run start:prod
    ```
 
-7. **View API documentation**
+8. **View API documentation**
 
    Once the application is running, open your browser and navigate to:
    ```
@@ -206,3 +212,49 @@ For production deployment, ensure:
 - The search implementation uses PostgreSQL's GIN indexes for both full-text search and array operations
 - Cursor-based pagination is recommended for better performance with large result sets
 - For high-traffic applications, consider adding a caching layer for frequent searches
+
+## Troubleshooting
+
+### TypeORM Migrations
+
+If you encounter issues with migrations, ensure that:
+
+1. **Database connection** is properly configured in the `.env` file
+2. **Data source configuration** is set up correctly in `src/database/data-source.ts`
+3. **Migration files** are properly created in the `src/migrations` directory
+
+To manually run a migration:
+
+```bash
+npm run typeorm:migration:run
+```
+
+To generate a new migration based on entity changes:
+
+```bash
+npm run typeorm:migration:generate YourMigrationName
+```
+
+To create an empty migration file:
+
+```bash
+npm run typeorm:migration:create YourMigrationName
+```
+
+### Database Setup
+
+If you're new to PostgreSQL:
+
+1. Install PostgreSQL on your machine
+2. Create a database for the application:
+   ```bash
+   createdb search_db
+   ```
+3. Configure the connection details in your `.env` file
+4. Create a test record:
+   ```sql
+   INSERT INTO searchable_content 
+   (entity_type, name, description, category) 
+   VALUES 
+   ('product', 'Test Product', 'Test description', 'Test Category');
+   ```

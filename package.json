@@ -22,7 +22,9 @@
     "typeorm:migration:run": "npm run typeorm -- migration:run",
     "typeorm:migration:revert": "npm run typeorm -- migration:revert",
     "seed": "ts-node -r tsconfig-paths/register src/seeder/seed.command.ts",
-    "seed:large": "ts-node -r tsconfig-paths/register src/seeder/seed-large.command.ts"
+    "seed:large": "ts-node -r tsconfig-paths/register src/seeder/seed-large.command.ts",
+    "seed:bulk": "ts-node -r tsconfig-paths/register src/seeder/seed-bulk.command.ts",
+    "update:search-vectors": "ts-node -r tsconfig-paths/register src/seeder/update-search-vectors.command.ts"
   },
   "keywords": [
     "nest",

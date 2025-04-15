@@ -1,7 +1,3 @@
-### TODO
-- learn and implement indexing; implement UT / test; study thoroughly!
-- learn and implement caching; implement UT / test; overkill?
-
 # Live Search API
 
 A NestJS-based REST API for powerful, scalable search functionality across different content types, backed by PostgreSQL full-text search capabilities.
